@@ -6,7 +6,7 @@ function spacecraft!(D, vars, params, t; a=0)
 	R = sqrt(sum(abs2, r))
 
 	D.r .= ṙ
-	D.ṙ .= -sqrt(μ/R^3).*r .+ a
+	D.ṙ .= -μ/R^3*r .+ a
 	
 	return D
 end
