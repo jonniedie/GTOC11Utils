@@ -25,10 +25,10 @@ station_sol = solve(prob)
 
 
 ## Plot
-defaults = (linewidth=1.5, xlims=(-5,5), ylims=(-5,5), zlims=(-5,5), aspect_ratio=1)
+defaults = (linewidth=1.5, xlims=(-5,5), ylims=(-5,5), zlims=(-5,5), aspect_ratio=1, size=(900,900))
 plt = scatter(eachcol(asteroids[:,1:3])...; color=:gray, markersize=0.2, opacity=0.5, widen=true)
 plot!(station_sol; vars=(1,2,3), color=:red, lw=3, label="station")
 for sol in sols
-    plot!(sol; vars=(1,2,3), label=false, primary=false, color=:lightblue, defaults...)
+    plot!(sol; vars=(1,2,3), label=false, primary=false, color=:goldenrod, defaults...)
 end
 display(plt)
