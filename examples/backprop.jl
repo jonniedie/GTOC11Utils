@@ -1,6 +1,6 @@
 using DifferentialEquations
 using GTOC11Utils
-using GTOC11Utils: yr, ustrip
+using GTOC11Utils: ustrip, km, AU, m, s, yr
 using Plots
 plotlyjs()
 
@@ -19,13 +19,19 @@ station_state = state_vec(ustrip.(propagate(0yr, station)))
 back_time = 2.0
 @time sols = get_candidate_solutions(station_state, asteroids, back_time;
     n_candidates = 100,
-    method = :newton,
     autodiff = :forward,
 );
 
 # Solve the forward problem for the station
 prob = remake(GTOC11Utils.spacecraft_prob, u0=station_state, tspan=(0.0, -back_time))
 station_sol = solve(prob)
+
+
+## Evaluate convenvergence
+final_states = [sol[end].x for sol in sols]
+state_errors = final_states .- Ref(station_state)
+er = [(e.r)AU .|> km for e in state_errors]
+ev = [(e.ṙ)AU/yr .|> km/s for e in state_errors]
 
 
 ## Plot
