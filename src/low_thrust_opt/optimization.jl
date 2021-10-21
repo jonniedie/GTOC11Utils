@@ -74,7 +74,7 @@ function nl_fun(u, p)
 end
 
 get_candidate_solutions(station, asteroids::AbstractMatrix, args...; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), args...; kwargs...)
-function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, trans_scale=1e-8, kwargs...)
+function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, trans_scale=1e-8, autodiff=:forward, kwargs...)
     @assert back_time>0 "Second argument should be a positive number representing the time before current time. Got $back_time"
 
     ## Solve reverse problem
@@ -123,7 +123,7 @@ function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, 
         nl_prob = NonlinearProblem(nl_fun, nl_u, nl_p)
 
         # Solve
-        nl_sol = solve(nl_prob; kwargs...)
+        nl_sol = solve(nl_prob; autodiff=autodiff, kwargs...)
         u0.λ = nl_sol.u.λ
 
         solve(remake(forward_prob; u0=u0, tspan=(t0, nl_sol.u.t)))
