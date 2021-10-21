@@ -17,7 +17,7 @@ station_state = state_vec(ustrip.(propagate(0yr, station)))
 ## Solve
 # Solve the back problem for asteroids
 back_time = 1.5
-sols = get_candidate_solutions(station_state, asteroids, back_time; n_candidates=20);
+@time sols = get_candidate_solutions(station_state, asteroids, back_time; n_candidates=20);
 
 # Solve the forward problem for the station
 prob = remake(GTOC11Utils.spacecraft_prob, u0=station_state, tspan=(0.0, -back_time))
