@@ -59,7 +59,7 @@ end
 
 function nl_fun(u, p)
 	@unpack λ, t = u
-	@unpack u0, xf, prob, α = p
+	@unpack u0, xf, prob, α, out = p
 
 	u0 = copy(u0)
 	u0.λ = λ
@@ -67,14 +67,14 @@ function nl_fun(u, p)
 	sol = solve(prob)
 	uf = sol[end]
 
-	trans = (-1 + uf.λ'uf.x) * α
-	Δr = (SVector{3}(xf.r) - SVector{3}(uf.x.r))*AU .|> km .|> ustrip
-	Δv = (SVector{3}(xf.ṙ) - SVector{3}(uf.x.ṙ))*AU/yr .|> km/s .|> ustrip
-	return [Δr; Δv; trans]
+    out.λ.r .= (xf.r .- uf.x.r).*AU .|> km .|> ustrip
+    out.λ.ṙ .= (xf.ṙ .- uf.x.ṙ).*(AU/yr) .|> km/s .|> ustrip
+    out.t = (-1 + uf.λ'uf.x) * α
+    return out
 end
 
 get_candidate_solutions(station, asteroids::AbstractMatrix, args...; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), args...; kwargs...)
-function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, trans_scale=1e-8)
+function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, trans_scale=1e-8, kwargs...)
     @assert back_time>0 "Second argument should be a positive number representing the time before current time. Got $back_time"
 
     ## Solve reverse problem
@@ -112,17 +112,18 @@ function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, 
         forward_prob = remake(back_prob; u0=u0, tspan=tspan)
 
         # Set up nonlinear problem
+        nl_u = ComponentArray(; λ=λ0, t=back_time)
         nl_p = (
             u0 = u0,
             xf = uf.x,
             prob = forward_prob,
-            α = trans_scale
+            α = trans_scale,
+            out = copy(nl_u),
         )
-        nl_u = ComponentArray(; λ=λ0, t=back_time)
         nl_prob = NonlinearProblem(nl_fun, nl_u, nl_p)
 
         # Solve
-        nl_sol = solve(nl_prob)
+        nl_sol = solve(nl_prob; kwargs...)
         u0.λ = nl_sol.u.λ
 
         solve(remake(forward_prob; u0=u0, tspan=(t0, nl_sol.u.t)))
