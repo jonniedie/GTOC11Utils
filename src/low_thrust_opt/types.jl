@@ -1,16 +1,14 @@
 @kwdef @concrete struct OneVehicleSimState
-    chaser
+    x
     λ
 end
 
 const sim_proto_one_vehicle = ComponentArray(
-    x = (
-        chaser = state_vec(zeros(6)),
-    ),
+    x = state_vec(zeros(6)),
     λ = state_vec(zeros(6)),
 )
 
-ComponentArrays.ComponentArray(x::OneVehicleSimState) = ComponentArray([x.chaser; x.λ], getaxes(sim_proto_one_vehicle))
+ComponentArrays.ComponentArray(x::OneVehicleSimState) = ComponentArray([x.x; x.λ], getaxes(sim_proto_one_vehicle))
 
 
 @kwdef @concrete struct TwoVehicleSimState

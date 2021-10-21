@@ -9,7 +9,10 @@ function loss(vars, p)
 	sol = solve_with(vars, p)
 	@unpack x, λ = sol[end]
 	@unpack chaser, target = x
-	return sum(abs2, SVector{6}(chaser) - SVector{6}(target))
+    dr = SVector{3}(chaser.r) - SVector{3}(target.r)
+    dṙ = SVector{3}(chaser.ṙ) - SVector{3}(target.ṙ)
+    return 5e6*1/2*dr'dr + 1e6*1/2*dṙ'dṙ
+	# return sum(abs2, SVector{6}(chaser) - SVector{6}(target))
 end
 
 """
@@ -44,9 +47,80 @@ function low_thrust_transfer(chaser, target;
 	lb = ComponentArray(OptInput(; λ=λ_lb, t=t_lb))
 	ub = ComponentArray(OptInput(; λ=λ_ub, t=t_ub))
 
-    p = (; Γ, μ, chaser, target, prob=sim_prob)
+    p = (; Γ, μ, chaser, target, prob=opt_rel_prob)
     f = OptimizationFunction(loss, autodiff)
     prob = OptimizationProblem(f, x, p; lb, ub)
 
     return solve(prob, alg; opt_kwargs...)
+end
+
+
+## Everything above this is garbage
+
+function nl_fun(u, p)
+	@unpack λ, t = u
+	@unpack u0, xf, prob, α = p
+
+	u0 = copy(u0)
+	u0.λ = λ
+	prob = remake(prob; u0, tspan=(prob.tspan[1], t))
+	sol = solve(prob)
+	uf = sol[end]
+
+	trans = (-1 + uf.λ'uf.x) * α
+	Δr = (SVector{3}(xf.r) - SVector{3}(uf.x.r))*AU .|> km .|> ustrip
+	Δv = (SVector{3}(xf.ṙ) - SVector{3}(uf.x.ṙ))*AU/yr .|> km/s .|> ustrip
+	return [Δr; Δv; trans]
+end
+
+get_candidate_solution(station, asteroids::AbstractMatrix, args...; kwargs...) = get_candidate_solution(station, collect(eachrow(asteroids)), args...; kwargs...)
+function get_candidate_solution(station, asteroids, back_time; trans_scale=1e-8)
+    @assert back_time>0 "Second argument should be a positive number representing the time before current time. Got $back_time"
+
+    ## Solve reverse problem
+    # Choose the first five final costates at random and calculate last from Hamiltonian
+    λf = @SVector(rand(5)) .- 0.5
+    λf = [λf; -(1 + station[1:end-1]'λf)/station[end]]
+
+    # Set up problem
+    uf = ComponentArray(OneVehicleSimState(x=station, λ=λf))
+    t0 = 0.0
+    back_prob = remake(opt_prob; u0=uf, tspan=(back_time, t0))
+
+    # Solve
+    back_sol = solve(back_prob)
+
+    # Get initial state and costate
+    u0 = back_sol[end]
+    back_station = u0.x
+    λ0 = u0.λ
+
+
+    ## Get closest asteroid at that point
+    sorted = sort(asteroids; by=asteroid->sum(abs2, asteroid-back_station))
+    bestie = sorted[1]
+    u0.x = bestie
+
+
+    ## Solve for the optimal trajectory
+    # Set up forward ODE problem
+    # tspan = (0.0, back_time-t0)
+    tspan = (t0, back_time)
+    forward_prob = remake(back_prob; u0=u0, tspan=tspan)
+
+    # Set up nonlinear problem
+    nl_p = (
+        u0 = u0,
+        xf = uf.x,
+        prob = forward_prob,
+        α = trans_scale
+    )
+    nl_u = ComponentArray(; λ=λ0, t=back_time)
+    nl_prob = NonlinearProblem(nl_fun, nl_u, nl_p)
+
+    # Solve
+    nl_sol = solve(nl_prob)
+    u0.λ = nl_sol.u.λ
+
+    return solve(remake(forward_prob; u0=u0, tspan=(t0, nl_sol.u.t)))
 end
