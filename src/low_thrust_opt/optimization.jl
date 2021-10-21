@@ -73,8 +73,8 @@ function nl_fun(u, p)
 	return [Δr; Δv; trans]
 end
 
-get_candidate_solution(station, asteroids::AbstractMatrix, args...; kwargs...) = get_candidate_solution(station, collect(eachrow(asteroids)), args...; kwargs...)
-function get_candidate_solution(station, asteroids, back_time; trans_scale=1e-8)
+get_candidate_solutions(station, asteroids::AbstractMatrix, args...; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), args...; kwargs...)
+function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, trans_scale=1e-8)
     @assert back_time>0 "Second argument should be a positive number representing the time before current time. Got $back_time"
 
     ## Solve reverse problem
@@ -83,7 +83,7 @@ function get_candidate_solution(station, asteroids, back_time; trans_scale=1e-8)
     λf = [λf; -(1 + station[1:end-1]'λf)/station[end]]
 
     # Set up problem
-    uf = ComponentArray(OneVehicleSimState(x=station, λ=λf))
+    uf = ComponentArray(OneVehicleSimState(x=collect(station), λ=λf))
     t0 = 0.0
     back_prob = remake(opt_prob; u0=uf, tspan=(back_time, t0))
 
@@ -96,31 +96,35 @@ function get_candidate_solution(station, asteroids, back_time; trans_scale=1e-8)
     λ0 = u0.λ
 
 
-    ## Get closest asteroid at that point
+    ## Get closest asteroids at that point
     sorted = sort(asteroids; by=asteroid->sum(abs2, asteroid-back_station))
-    bestie = sorted[1]
-    u0.x = bestie
+    besties = sorted[1:n_candidates]
 
 
-    ## Solve for the optimal trajectory
-    # Set up forward ODE problem
-    # tspan = (0.0, back_time-t0)
-    tspan = (t0, back_time)
-    forward_prob = remake(back_prob; u0=u0, tspan=tspan)
+    ## Loop over chosen asteroids
+    return map(besties) do bestie
+        u0.x = bestie
 
-    # Set up nonlinear problem
-    nl_p = (
-        u0 = u0,
-        xf = uf.x,
-        prob = forward_prob,
-        α = trans_scale
-    )
-    nl_u = ComponentArray(; λ=λ0, t=back_time)
-    nl_prob = NonlinearProblem(nl_fun, nl_u, nl_p)
+        ## Solve for the optimal trajectory
+        # Set up forward ODE problem
+        # tspan = (0.0, back_time-t0)
+        tspan = (t0, back_time)
+        forward_prob = remake(back_prob; u0=u0, tspan=tspan)
 
-    # Solve
-    nl_sol = solve(nl_prob)
-    u0.λ = nl_sol.u.λ
+        # Set up nonlinear problem
+        nl_p = (
+            u0 = u0,
+            xf = uf.x,
+            prob = forward_prob,
+            α = trans_scale
+        )
+        nl_u = ComponentArray(; λ=λ0, t=back_time)
+        nl_prob = NonlinearProblem(nl_fun, nl_u, nl_p)
 
-    return solve(remake(forward_prob; u0=u0, tspan=(t0, nl_sol.u.t)))
+        # Solve
+        nl_sol = solve(nl_prob)
+        u0.λ = nl_sol.u.λ
+
+        solve(remake(forward_prob; u0=u0, tspan=(t0, nl_sol.u.t)))
+    end
 end

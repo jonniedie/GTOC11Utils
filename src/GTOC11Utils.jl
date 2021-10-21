@@ -32,7 +32,7 @@ export OneVehicleSimState, TwoVehicleSimState, OptInput
 include("low_thrust_opt/equations_of_motion.jl")
 
 include("low_thrust_opt/optimization.jl")
-export low_thrust_transfer, get_candidate_solution
+export low_thrust_transfer, get_candidate_solutions
 
 include("low_thrust_opt/postprocessing.jl")
 export run_solution, get_accelerations
