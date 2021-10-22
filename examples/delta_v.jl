@@ -1,6 +1,6 @@
 using LinearAlgebra: norm, normalize, ⋅, ×
-using GeometryBasics: Point, Sphere
-using GLMakie: mesh, quiver!, annotations!
+using GeometryBasics: Point3, Sphere
+using CairoMakie: mesh, quiver!, annotations!
 using GTOC11Utils: delta_v_with_radius
 
 
