@@ -3,13 +3,13 @@
 
 # Default units
 const DEFAULT_TIME_UNIT = yr
-const DEFUALT_DISTANCE_UNIT = AU
+const DEFAULT_DISTANCE_UNIT = AU
 const DEFAULT_MASS_UNIT = kg
 const DEFAULT_ANGLE_UNIT = °
 
 # Solver constnats
 const DEFAULT_ALG = ARKODE(Explicit(), etable=FEHLBERG_13_7_8)
-const DEFUALT_SIM_ARGS = (adaptive=false, dt=ustrip(DEFAULT_TIME_UNIT(1d)))
+const DEFAULT_SIM_ARGS = (adaptive=false, dt=ustrip(DEFAULT_TIME_UNIT(1d)))
 
 # Problem constants
 const Γ = 1e-4(m/s^2) |> DEFUALT_DISTANCE_UNIT/DEFAULT_TIME_UNIT^2                    # Constant thrust acceleration

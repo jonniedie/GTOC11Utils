@@ -31,7 +31,7 @@ tols = ComponentArray(r=fill(ustrip(AU(10km)), 3), ṙ=fill(ustrip((AU/yr)(0.01m
 @time station_sol = solve(prob; abstol=tols)
 
 sundials_prob = remake(prob; u0=station_sol[end], tspan=(0.0, back_time))
-@time sundials_sol = solve(sundials_prob, GTOC11Utils.DEFAULT_ALG; adaptive=false, dt=ustrip(yr(1d)), alg_hints=:interpolant)
+@time sundials_sol = solve(sundials_prob, GTOC11Utils.DEFAULT_ALG; GTOC11Utils.DEFAULT_SIM_ARGS...)
 
 error = station_sol[1] - sundials_sol[end] |> unitize_state
 
