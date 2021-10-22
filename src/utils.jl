@@ -20,7 +20,7 @@ function delta_v_with_radius(v⃗ₘ, v⃗₁, v⃗₂, r)
 	
 	q = quat_from_vec_angle(n̂, α)
 	
-	r⃗ = r*q*normalize(l⃗₁)
+	r⃗ = r*normalize(q*l⃗₁)
 	
 	Δv⃗₁ₘ = l⃗₁ - r⃗
 	Δv⃗₁₂ = l⃗₂ - r⃗
