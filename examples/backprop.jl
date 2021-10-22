@@ -1,9 +1,14 @@
+using ComponentArrays
 using DifferentialEquations
 using GTOC11Utils
-using GTOC11Utils: ustrip, km, AU, m, s, yr
+using GTOC11Utils: ustrip, km, AU, m, s, yr, d
 using Plots
+using Sundials
 plotlyjs()
 
+
+##
+unitize_state(state; pos_units=km, vel_units=m/s) = ComponentArray(r=pos_units.((state.r)AU), ṙ=vel_units.((state.ṙ)AU/yr))
 
 ## Data ingestion
 data = read_asteroids_file("data/Candidate_Asteroids.txt")
@@ -14,24 +19,33 @@ station = rand(eachrow(data))
 station_state = state_vec(ustrip.(propagate(0yr, station)))
 
 
-## Solve
-# Solve the back problem for asteroids
-back_time = 2.0
-@time sols = get_candidate_solutions(station_state, asteroids, back_time;
-    n_candidates = 100,
+## Solve the back problem for asteroids
+back_time = 0.75
+alg = ARKODE(Sundials.Explicit(), etable=Sundials.FEHLBERG_13_7_8)
+@time sols = get_candidate_solutions(station_state, asteroids, back_time, alg;
+    n_candidates = 20,
     autodiff = :forward,
+    autoscale = false,
+    # alg = ARKODE(Sundials.Explicit(), etable=Sundials.FEHLBERG_13_7_8),
 );
 
-# Solve the forward problem for the station
+
+## Solve the forward problem for the station
 prob = remake(GTOC11Utils.spacecraft_prob, u0=station_state, tspan=(0.0, -back_time))
-station_sol = solve(prob)
+tols = ComponentArray(r=fill(ustrip(AU(10km)), 3), ṙ=fill(ustrip((AU/yr)(0.01m/s)), 3)) * 1e-5
+@time station_sol = solve(prob; alg_hints=(:interpolant,), abstol=tols)
+
+sundials_prob = remake(prob; u0=station_sol[end], tspan=(0.0, back_time))
+@time sundials_sol = solve(sundials_prob, alg; adaptive=false, dt=ustrip(yr(1d)), alg_hints=:interpolant)
+
+error = station_sol[1] - sundials_sol[end] |> unitize_state
 
 
 ## Evaluate convenvergence
 final_states = [sol[end].x for sol in sols]
 state_errors = final_states .- Ref(station_state)
 er = [(e.r)AU .|> km for e in state_errors]
-ev = [(e.ṙ)AU/yr .|> km/s for e in state_errors]
+ev = [(e.ṙ)AU/yr .|> m/s for e in state_errors]
 
 
 ## Plot

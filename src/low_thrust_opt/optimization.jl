@@ -74,7 +74,7 @@ function nl_fun(u, p)
 end
 
 get_candidate_solutions(station, asteroids::AbstractMatrix, args...; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), args...; kwargs...)
-function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, trans_scale=1e-8, autodiff=:forward, kwargs...)
+function get_candidate_solutions(station, asteroids, back_time, args...; n_candidates=1, trans_scale=1e-8, autodiff=:forward, saveat=ustrip(yr(1d)), kwargs...)
     @assert back_time>0 "Second argument should be a positive number representing the time before current time. Got $back_time"
 
     ## Solve reverse problem
@@ -107,7 +107,6 @@ function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, 
 
         ## Solve for the optimal trajectory
         # Set up forward ODE problem
-        # tspan = (0.0, back_time-t0)
         tspan = (t0, back_time)
         forward_prob = remake(back_prob; u0=u0, tspan=tspan)
 
@@ -126,6 +125,6 @@ function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, 
         nl_sol = solve(nl_prob; autodiff=autodiff, kwargs...)
         u0.λ = nl_sol.u.λ
 
-        solve(remake(forward_prob; u0=u0, tspan=(t0, nl_sol.u.t)))
+        solve(remake(forward_prob; u0=u0, tspan=(t0, nl_sol.u.t)), args...; saveat=saveat)
     end
 end
