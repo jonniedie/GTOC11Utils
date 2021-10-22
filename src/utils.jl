@@ -28,16 +28,21 @@ function delta_v_with_radius(v⃗ₘ, v⃗₁, v⃗₂, r)
 	return Δv⃗₁ₘ, Δv⃗₁₂
 end
 
-function read_asteroids_file(fname)
+function read_asteroids_file(fname; time_unit=yr, distance_unit=AU, angle_unit=°, mass_unit=kg, keep_units=true)
     data = readdlm(fname; header=true)
+
+    # Make dataframe
     values = data[1]
     colnames = ["ID", "epoch", "a", "e", "i", "Ω", "ω", "M", "mass"]
     df = DataFrame(values, colnames)
-    df[!,1] = df[:,1] .|> Int
-    df[!,2] = df[:,2] .* d .|> yr
-    df[!,3] = df[:,3] .* AU
-    df[!,5:8] = df[:,5:8] .* °
-    df[!,9] = df[:,9] .* kg
-    return df
+
+    # Convert units
+    df[!,1] =     df[:,1]     .|> Int
+    df[!,2] =     df[:,2].*d  .|> time_unit
+    df[!,3] =     df[:,3].*AU .|> distance_unit
+    df[!,5:8] = df[:,5:8].*°  .|> angle_unit
+    df[!,9] =     df[:,9].*kg .|> mass_unit
+
+    return keep_units ? df : ustrip.(df)
 end
 
