@@ -14,6 +14,7 @@ using Plots: plot, plot!, scatter!, quiver!
 using Rotations: RotZXZ, UnitQuaternion
 using SimulationLogs: @log, get_log, scope, scope!
 using StaticArrays: @SVector, @SMatrix, SVector
+using Sundials: ARKODE, Explicit, FEHLBERG_13_7_8
 using UnPack: @unpack
 using Unitful: @unit, ustrip, m, km, s, d, °, kg
 using UnitfulAstro: yr
@@ -21,13 +22,13 @@ using UnitfulAstro: yr
 
 export get_log, scope, scope!
 
+include("units_and_constants.jl")
+
 include("utils.jl")
 export read_asteroids_file, state_vec, delta_v_with_radius
 
 include("orbit_conversions.jl")
 export kepler_to_cartesian, cartesian_to_kepler, propagate
-
-include("constants.jl")
 
 include("low_thrust_opt/types.jl")
 export OneVehicleSimState, TwoVehicleSimState, OptInput

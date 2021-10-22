@@ -1,6 +1,3 @@
-# Need this because GTOC 11 uses a different definition of an AU than the standard
-@unit AU "AU" AstronomicalUnit 149_597_870_691*m false
-
 vec3(v) = ComponentArray(x=v[1], y=v[2], z=v[3])
 
 state_vec(x) = ComponentArray(; r=vec3(x[1:3]), ṙ=vec3(x[4:6]))
@@ -28,7 +25,7 @@ function delta_v_with_radius(v⃗ₘ, v⃗₁, v⃗₂, r)
 	return Δv⃗₁ₘ, Δv⃗₁₂
 end
 
-function read_asteroids_file(fname; time_unit=yr, distance_unit=AU, angle_unit=°, mass_unit=kg, keep_units=true)
+function read_asteroids_file(fname; time_unit=DEFAULT_TIME_UNIT, distance_unit=DEFUALT_DISTANCE_UNIT, angle_unit=DEFAULT_ANGLE_UNIT, mass_unit=DEFAULT_MASS_UNIT, keep_units=true)
     data = readdlm(fname; header=true)
 
     # Make dataframe

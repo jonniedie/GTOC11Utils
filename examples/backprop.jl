@@ -3,7 +3,6 @@ using DifferentialEquations
 using GTOC11Utils
 using GTOC11Utils: ustrip, km, AU, m, s, yr, d
 using Plots
-using Sundials
 plotlyjs()
 
 
@@ -20,23 +19,19 @@ station_state = state_vec(ustrip.(propagate(0yr, station)))
 
 
 ## Solve the back problem for asteroids
-back_time = 0.75
-alg = ARKODE(Sundials.Explicit(), etable=Sundials.FEHLBERG_13_7_8)
-@time sols = get_candidate_solutions(station_state, asteroids, back_time, alg;
+back_time = 1.5
+@time sols = get_candidate_solutions(station_state, asteroids, back_time;
     n_candidates = 20,
-    autodiff = :forward,
-    autoscale = false,
-    # alg = ARKODE(Sundials.Explicit(), etable=Sundials.FEHLBERG_13_7_8),
 );
 
 
 ## Solve the forward problem for the station
 prob = remake(GTOC11Utils.spacecraft_prob, u0=station_state, tspan=(0.0, -back_time))
 tols = ComponentArray(r=fill(ustrip(AU(10km)), 3), ṙ=fill(ustrip((AU/yr)(0.01m/s)), 3)) * 1e-5
-@time station_sol = solve(prob; alg_hints=(:interpolant,), abstol=tols)
+@time station_sol = solve(prob; abstol=tols)
 
 sundials_prob = remake(prob; u0=station_sol[end], tspan=(0.0, back_time))
-@time sundials_sol = solve(sundials_prob, alg; adaptive=false, dt=ustrip(yr(1d)), alg_hints=:interpolant)
+@time sundials_sol = solve(sundials_prob, GTOC11Utils.DEFAULT_ALG; adaptive=false, dt=ustrip(yr(1d)), alg_hints=:interpolant)
 
 error = station_sol[1] - sundials_sol[end] |> unitize_state
 

@@ -1,7 +1,7 @@
 name = "GTOC11Utils"
 uuid = "1a5803e8-2930-4de9-b57f-a4840303f668"
 authors = ["Jonnie Diegelman <jonniediegelman@gmail.com>"]
-version = "0.1.6"
+version = "0.1.7"
 
 [deps]
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
