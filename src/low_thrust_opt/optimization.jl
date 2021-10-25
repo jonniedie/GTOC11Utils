@@ -67,8 +67,8 @@ function nl_fun(u, p)
 	sol = solve(prob, alg)
 	uf = sol[end]
 
-    out.λ.r .= (xf.r .- uf.x.r).*DEFUALT_DISTANCE_UNIT .|> km .|> ustrip
-    out.λ.ṙ .= (xf.ṙ .- uf.x.ṙ).*(DEFUALT_DISTANCE_UNIT/DEFAULT_TIME_UNIT) .|> km/s .|> ustrip
+    out.λ.r .= (xf.r .- uf.x.r).*DEFAULT_DISTANCE_UNIT .|> km .|> ustrip
+    out.λ.ṙ .= (xf.ṙ .- uf.x.ṙ).*(DEFAULT_DISTANCE_UNIT/DEFAULT_TIME_UNIT) .|> km/s .|> ustrip
     out.t = (-1 + uf.λ'uf.x) * α
     return out
 end
@@ -79,8 +79,9 @@ function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, 
 
     ## Solve reverse problem
     # Choose the first five final costates at random and calculate last from Hamiltonian
-    λf = @SVector(rand(5)) .- 0.5
-    λf = [λf; -(1 + station[1:end-1]'λf)/station[end]]
+    λf = @SVector(rand(6)) .- 0.5
+    max_i = argmax(station)
+    @set! λf[max_i] = -(1 + station[Not(max_i)]'*λf[Not(max_i)]) / station[max_i]
 
     # Set up problem
     uf = ComponentArray(OneVehicleSimState(x=collect(station), λ=λf))
@@ -88,7 +89,7 @@ function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, 
     back_prob = remake(opt_prob; u0=uf, tspan=(back_time, t0))
 
     # Solve
-    back_sol = solve(back_prob)
+    back_sol = solve(back_prob, Tsit5())
 
     # Get initial state and costate
     u0 = back_sol[end]

@@ -5,13 +5,15 @@ using ComponentArrays: ComponentArrays, ComponentArray, getdata, getaxes
 using ConcreteStructs: @concrete
 using DataFrames: DataFrame, DataFrameRow
 using DelimitedFiles: readdlm
-using DifferentialEquations: ODEProblem, solve, remake
+using DifferentialEquations: ODEProblem, Tsit5, solve, remake
 using DifferentialEquations.SciMLBase: AbstractODESolution, AbstractOptimizationSolution
 using GalacticOptim: GalacticOptim, OptimizationFunction, OptimizationProblem, NonlinearProblem
+using InvertedIndices: Not
 using LinearAlgebra: norm, normalize, ×, ⋅
 using Optim: Fminbox, NelderMead
 using Plots: plot, plot!, scatter!, quiver!
 using Rotations: RotZXZ, UnitQuaternion
+using Setfield: @set!
 using SimulationLogs: @log, get_log, scope, scope!
 using StaticArrays: @SVector, @SMatrix, SVector
 using Sundials: ARKODE, Explicit, FEHLBERG_13_7_8

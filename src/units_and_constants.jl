@@ -12,6 +12,6 @@ const DEFAULT_ALG = ARKODE(Explicit(), etable=FEHLBERG_13_7_8)
 const DEFAULT_SIM_ARGS = (adaptive=false, dt=ustrip(DEFAULT_TIME_UNIT(1d)))
 
 # Problem constants
-const Γ = 1e-4(m/s^2) |> DEFUALT_DISTANCE_UNIT/DEFAULT_TIME_UNIT^2                    # Constant thrust acceleration
-const μ = 1.32712440018e11(km^3/s^2) |> DEFUALT_DISTANCE_UNIT^3/DEFAULT_TIME_UNIT^2   # Sun gravitational parameter
+const Γ = 1e-4(m/s^2) |> DEFAULT_DISTANCE_UNIT/DEFAULT_TIME_UNIT^2                    # Constant thrust acceleration
+const μ = 1.32712440018e11(km^3/s^2) |> DEFAULT_DISTANCE_UNIT^3/DEFAULT_TIME_UNIT^2   # Sun gravitational parameter
 const α = 6e-9(1/s) |> DEFAULT_TIME_UNIT^-1                                           # Mass proportion coefficient

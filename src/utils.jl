@@ -25,7 +25,7 @@ function delta_v_with_radius(v⃗ₘ, v⃗₁, v⃗₂, r)
 	return Δv⃗₁ₘ, Δv⃗₁₂
 end
 
-function read_asteroids_file(fname; time_unit=DEFAULT_TIME_UNIT, distance_unit=DEFUALT_DISTANCE_UNIT, angle_unit=DEFAULT_ANGLE_UNIT, mass_unit=DEFAULT_MASS_UNIT, keep_units=true)
+function read_asteroids_file(fname; time_unit=DEFAULT_TIME_UNIT, distance_unit=DEFAULT_DISTANCE_UNIT, angle_unit=DEFAULT_ANGLE_UNIT, mass_unit=DEFAULT_MASS_UNIT, keep_units=true)
     data = readdlm(fname; header=true)
 
     # Make dataframe
