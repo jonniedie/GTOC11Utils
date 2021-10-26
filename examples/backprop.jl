@@ -11,17 +11,20 @@ unitize_state(state; pos_units=km, vel_units=m/s) = ComponentArray(r=pos_units.(
 
 ## Data ingestion
 data = read_asteroids_file("data/Candidate_Asteroids.txt")
-asteroids = ustrip.(reduce(hcat, propagate.(0yr, eachrow(data))))'
+# asteroids = ustrip.(reduce(hcat, propagate.(0yr, eachrow(data))))'
+asteroids = propagate.(0yr, eachrow(data))
 
 # Chose a random asteroid's state as the station
-station = rand(eachrow(data))
-station_state = state_vec(ustrip.(propagate(0yr, station)))
+station = NamedTuple(rand(eachrow(data)))
+station_state = state_vec(propagate(0yr, station))
 
 
 ## Solve the back problem for asteroids
 back_time = 1.5
 @time sols = get_candidate_solutions(station_state, asteroids, back_time;
     n_candidates = 20,
+    trans_scale=1e-8,
+    autoscale=false,
 );
 
 
@@ -44,8 +47,9 @@ ev = [(e.ṙ)AU/yr .|> m/s for e in state_errors]
 
 
 ## Plot
-defaults = (linewidth=1.5, xlims=(-5,5), ylims=(-5,5), zlims=(-5,5), aspect_ratio=1, size=(900,900))
-plt = scatter(eachcol(asteroids[:,1:3])...; color=:gray, markersize=0.2, opacity=0.5, label="asteroids")
+defaults = (linewidth=1.5, xlims=(-5,5), ylims=(-5,5), zlims=(-5,5), aspect_ratio=1)
+plt = scatter(eachcol(reduce(hcat,asteroids)'[:,1:3])...; color=:gray, markersize=0.2, opacity=0.5, label="asteroids")
+# plt = scatter(eachcol(asteroids[:,1:3])...; color=:gray, markersize=0.2, opacity=0.5, label="asteroids")
 plot!(station_sol; vars=(1,2,3), color=:red, lw=3, label="station")
 primary = true
 for sol in sols

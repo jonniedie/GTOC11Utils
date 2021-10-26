@@ -1,7 +1,22 @@
 maybe_reverse(x, cond) = cond ≥ zero(cond) ? x : 2π-x
 
-propagate(t, x::DataFrameRow; kwargs...) = propagate(t, NamedTuple(@view(x[2:end-1])); kwargs...)
-function propagate(t,x; mu=μ)
+strip_to_rad(x) = ustrip(x)
+strip_to_rad(x::Quantity{<:T, NoDims, FreeUnits{(°,), NoDims, nothing}}) where T = ustrip(deg2rad(x))
+
+# propagate(t::Quantity, x::DataFrameRow; kwargs...) = propagate(t, strip_to_rad(@view(x[2:end-1])); kwargs...)
+function propagate(t::Quantity, x; mu=μ)
+    x = SVector(
+        ustrip(yr, x.epoch),
+        ustrip(AU, x.a),
+        x.e,
+        ustrip(rad, x.i),
+        ustrip(rad, x.Ω),
+        ustrip(rad, x.ω),
+        ustrip(rad, x.M),
+    )
+    return propagate(ustrip(yr, t), x; mu=ustrip(AU^3/yr^2, mu))
+end
+function propagate(t,x; mu=ustrip(μ))
     t0,a,e,i,W,w,M0 = x
     n = sqrt((mu)/a^3)
     M = n*(t-t0)+M0
@@ -42,11 +57,13 @@ function propagate(t,x; mu=μ)
     vy = v*(-sin(f+w-gamma)*sin(W)+cos(f+w-gamma)*cos(i)*cos(W))
     vz = v*(cos(f+w-gamma)*sin(i))
  
-    xf = SVector(x,y,z,vx,vy,vz)
+    # rf = SVector(x,y,z) #.|> ustrip
+    # vf = SVector(vx,vy,vz) #.|> ustrip
    
-    return xf
+    return SVector(x,y,z,vx,vy,vz)
 end
 
+# THIS DOESN'T WORK
 function kepler_to_cartesian(df::DataFrame; out_fun=ustrip, tol=1e-12)
     named_tuples = NamedTuple.(eachrow(df[:,2:end-1]))
     state_vectors = [out_fun.(kepler_to_cartesian(; nt...)) for nt in named_tuples]
@@ -84,7 +101,7 @@ function kepler_to_cartesian(; a, e, i, Ω, ω, M, epoch=0yr, t0=0yr, μ=μ, tol
 	return [r⃗; r⃗̇]
 end
 
-function cartesian_to_kepler(r⃗r⃗̇, μ=μ)
+function cartesian_to_kepler(r⃗r⃗̇, μ=ustrip(μ))
     r⃗, r⃗̇ = @views r⃗r⃗̇[1:3], r⃗r⃗̇[4:6]
 	r⃗, r⃗̇ = SVector{3}(r⃗), SVector{3}(r⃗̇)
 	r = norm(r⃗)

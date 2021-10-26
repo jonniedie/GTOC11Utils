@@ -18,7 +18,7 @@ using SimulationLogs: @log, get_log, scope, scope!
 using StaticArrays: @SVector, @SMatrix, SVector
 using Sundials: ARKODE, Explicit, FEHLBERG_13_7_8
 using UnPack: @unpack
-using Unitful: @unit, ustrip, m, km, s, d, °, kg
+using Unitful: @unit, Quantity, NoDims, FreeUnits, ustrip, m, km, s, d, °, kg, rad
 using UnitfulAstro: yr
 
 
