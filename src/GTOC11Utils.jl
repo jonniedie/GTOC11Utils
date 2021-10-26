@@ -30,7 +30,7 @@ include("utils.jl")
 export read_asteroids_file, state_vec, delta_v_with_radius
 
 include("orbit_conversions.jl")
-export kepler_to_cartesian, cartesian_to_kepler, propagate
+export kepler_to_cartesian, cartesian_to_kepler, propagate, strip_ephemeris
 
 include("low_thrust_opt/types.jl")
 export OneVehicleSimState, TwoVehicleSimState, OptInput

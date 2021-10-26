@@ -56,39 +56,48 @@ end
 
 
 ## Everything above this is garbage
-
 function nl_fun(u, p)
 	@unpack λ, t = u
-	@unpack u0, xf, prob, α, out, alg = p
+	@unpack station_initial, prob, α, out, alg = p
 
-	u0 = copy(u0)
+    station_final = propagate(t, station_initial)
+
+	u0 = copy(prob.u0)
 	u0.λ = λ
 	prob = remake(prob; u0, tspan=(prob.tspan[1], t))
 	sol = solve(prob, alg)
 	uf = sol[end]
 
-    out.λ.r .= (xf.r .- uf.x.r).*DEFAULT_DISTANCE_UNIT .|> km .|> ustrip
-    out.λ.ṙ .= (xf.ṙ .- uf.x.ṙ).*(DEFAULT_DISTANCE_UNIT/DEFAULT_TIME_UNIT) .|> km/s .|> ustrip
-    out.t = (-1 + uf.λ'uf.x) * α
+    @. out.λ.r = 1e-10(1e10station_final[1:3] - 1e10uf.x.r)*DEFAULT_DISTANCE_UNIT |> km |> ustrip
+    @. out.λ.ṙ = (station_final[4:6] - uf.x.ṙ)*(DEFAULT_DISTANCE_UNIT/DEFAULT_TIME_UNIT) |> km/s |> ustrip
+    out.t = (1 + uf.λ'uf.x) * α
     return out
 end
 
-get_candidate_solutions(station, asteroids::AbstractMatrix, back_time; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), back_time; kwargs...)
-function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, trans_scale=1e-8, alg=DEFAULT_ALG, autodiff=:forward, saveat=ustrip(DEFAULT_TIME_UNIT(1d)), kwargs...)
-    @assert back_time>0 "Second argument should be a positive number representing the time before current time. Got $back_time"
-
+get_candidate_solutions(station, asteroids::AbstractMatrix, time_guess; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), time_guess; kwargs...)
+function get_candidate_solutions(station, asteroids, time_guess;
+                                 n_candidates=1,
+                                 trans_scale=1e-8,
+                                 alg=DEFAULT_ALG,
+                                 autodiff=:forward,
+                                 saveat=ustrip(DEFAULT_TIME_UNIT(1d)),
+                                 kwargs...)
     ## Solve reverse problem
+    t0 = 0.0 # station[1]
+    station_state_initial = station[2:end]
+    station_state_final = propagate(time_guess, station)
+
     # Choose the first five final costates at random and calculate last from Hamiltonian
     λf = @SVector(rand(6)) .- 0.5
-    max_i = argmax(station)
-    @set! λf[max_i] = -(1 + station[Not(max_i)]'*λf[Not(max_i)]) / station[max_i]
+    max_i = argmax(station_state_final)
+    # max_i = 6
+    @set! λf[max_i] = -(1 + station_state_final[Not(max_i)]'*λf[Not(max_i)]) / station_state_final[max_i]
 
     # Set up problem
-    uf = ComponentArray(OneVehicleSimState(x=collect(station), λ=λf))
-    t0 = 0.0
-    back_prob = remake(opt_prob; u0=uf, tspan=(back_time, t0))
+    uf = ComponentArray(OneVehicleSimState(x=collect(station_state_final), λ=λf))
+    back_prob = remake(opt_prob; u0=uf, tspan=(time_guess, t0))
 
-    # Solve
+    # # Solve
     back_sol = solve(back_prob, Tsit5())
 
     # Get initial state and costate
@@ -108,14 +117,13 @@ function get_candidate_solutions(station, asteroids, back_time; n_candidates=1, 
 
         ## Solve for the optimal trajectory
         # Set up forward ODE problem
-        tspan = (t0, back_time)
+        tspan = (t0, time_guess)
         forward_prob = remake(back_prob; u0=u0, tspan=tspan)
 
         # Set up nonlinear problem
-        nl_u = ComponentArray(; λ=λ0, t=back_time)
+        nl_u = ComponentArray(; λ=λ0, t=time_guess)
         nl_p = (
-            u0 = u0,
-            xf = uf.x,
+            station_initial = station,
             prob = forward_prob,
             α = trans_scale,
             out = copy(nl_u),

@@ -1,7 +1,14 @@
 maybe_reverse(x, cond) = cond ≥ zero(cond) ? x : 2π-x
 
-strip_to_rad(x) = ustrip(x)
-strip_to_rad(x::Quantity{<:T, NoDims, FreeUnits{(°,), NoDims, nothing}}) where T = ustrip(deg2rad(x))
+strip_ephemeris(x) = SVector(
+    ustrip(yr, x.epoch),
+    ustrip(AU, x.a),
+    x.e,
+    ustrip(rad, x.i),
+    ustrip(rad, x.Ω),
+    ustrip(rad, x.ω),
+    ustrip(rad, x.M),
+)
 
 # propagate(t::Quantity, x::DataFrameRow; kwargs...) = propagate(t, strip_to_rad(@view(x[2:end-1])); kwargs...)
 function propagate(t::Quantity, x; mu=μ)
