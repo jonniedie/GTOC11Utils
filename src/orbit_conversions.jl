@@ -22,8 +22,23 @@ function propagate(t::Quantity, x; mu=μ)
         ustrip(rad, x.M),
     )
     return propagate(ustrip(yr, t), x; mu=ustrip(AU^3/yr^2, mu))
+end		
+
+function propagate(t, eph; mu=μ)
+    x = [
+        eph.t0,
+        eph.a,
+        eph.e,
+        eph.i,
+        eph.Ω,
+        eph.ω,
+        eph.M0,
+    ]
+    return propagate(t, x; mu=ustrip(AU^3/yr^2, mu))
+
 end
-function propagate(t,x; mu=ustrip(μ))
+
+function propagate(t,x::Vector; mu=ustrip(μ))
     t0,a,e,i,W,w,M0 = x
     n = sqrt((mu)/a^3)
     M = n*(t-t0)+M0
