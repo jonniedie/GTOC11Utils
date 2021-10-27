@@ -38,7 +38,7 @@ function propagate(t, eph; mu=μ)
 
 end
 
-function propagate(t,x::Vector; mu=ustrip(μ))
+function propagate(t,x::AbstractVector; mu=ustrip(μ))
     t0,a,e,i,W,w,M0 = x
     n = sqrt((mu)/a^3)
     M = n*(t-t0)+M0
