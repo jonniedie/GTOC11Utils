@@ -75,7 +75,7 @@ function nl_fun(u, p)
 end
 
 get_candidate_solutions(station, asteroids::AbstractMatrix, time_guess; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), time_guess; kwargs...)
-function get_candidate_solutions(station, asteroids, time_guess;
+function get_candidate_solutions(station, asteroids, t0, time_guess;
                                  n_candidates=1,
                                  trans_scale=1e-8,
                                  alg=DEFAULT_ALG,
@@ -83,9 +83,10 @@ function get_candidate_solutions(station, asteroids, time_guess;
                                  saveat=ustrip(DEFAULT_TIME_UNIT(1d)),
                                  kwargs...)
     ## Solve reverse problem
-    t0 = 0.0 # station[1]
-    station_state_initial = station[2:end]
-    station_state_final = propagate(time_guess, station)
+    #t0 = 0.0 # station[1]    
+    #station_state_initial = station[2:end]
+    tf = t0+time_guess
+    station_state_final = propagate(tf, station)
 
     # Choose the first five final costates at random and calculate last from Hamiltonian
     λf = @SVector(rand(6)) .- 0.5
@@ -95,10 +96,10 @@ function get_candidate_solutions(station, asteroids, time_guess;
 
     # Set up problem
     uf = ComponentArray(OneVehicleSimState(x=collect(station_state_final), λ=λf))
-    back_prob = remake(opt_prob; u0=uf, tspan=(time_guess, t0))
+    back_prob = remake(opt_prob; u0=uf, tspan=(tf, t0))
 
     # # Solve
-    back_sol = solve(back_prob, Tsit5())
+    back_sol = solve(back_prob, Tsit5())		
 
     # Get initial state and costate
     u0 = back_sol[end]
@@ -117,11 +118,11 @@ function get_candidate_solutions(station, asteroids, time_guess;
 
         ## Solve for the optimal trajectory
         # Set up forward ODE problem
-        tspan = (t0, time_guess)
+        tspan = (t0, tf)
         forward_prob = remake(back_prob; u0=u0, tspan=tspan)
 
         # Set up nonlinear problem
-        nl_u = ComponentArray(; λ=λ0, t=time_guess)
+        nl_u = ComponentArray(; λ=λ0, t=tf)
         nl_p = (
             station_initial = station,
             prob = forward_prob,
@@ -135,6 +136,8 @@ function get_candidate_solutions(station, asteroids, time_guess;
         nl_sol = solve(nl_prob; autodiff=autodiff, kwargs...)
         u0.λ = nl_sol.u.λ
 
+				tff = nl_sol.u.t
+				print("$t0,$tf\n")
         solve(remake(forward_prob; u0=u0, tspan=(t0, nl_sol.u.t)), alg; saveat=saveat)
     end
 end
