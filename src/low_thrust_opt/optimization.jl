@@ -61,7 +61,7 @@ end
 
 const nl_var_ax = getaxes(ComponentArray(λ=state_vec(zeros(6)), t=0.0))
 
-function scale_to_requirements(x; r_req=1km, v_req=2m/s)
+function scale_to_requirements(x; r_req=10km, v_req=0.01m/s)
     r, v = x[1:3], x[4:6]
     r_scaled = unit(r_req).(r*DEFAULT_DISTANCE_UNIT)./r_req
     v_scaled = unit(v_req).(v*DEFAULT_DISTANCE_UNIT/DEFAULT_TIME_UNIT)./v_req
@@ -135,8 +135,8 @@ function get_candidate_solutions(station, asteroids, tf, t0_guess;
 
 
     ## Get closest asteroids at that point
-    sorted = sort(asteroids; by=asteroid->sum(abs2, propagate(t0_guess, asteroid) - back_station))
-    # sorted = sort(asteroids; by=asteroid->distance_metric(propagate(t0_guess, asteroid),  back_station))
+    # sorted = sort(asteroids; by=asteroid->sum(abs2, propagate(t0_guess, asteroid) - back_station))
+    sorted = sort(asteroids; by=asteroid->distance_metric(propagate(t0_guess, asteroid),  back_station))
     besties = sorted[1:n_candidates]
 
 

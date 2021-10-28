@@ -31,22 +31,22 @@ t0_guess = station[1]
 tf = t0_guess + 1.75
 @time sols = get_candidate_solutions(station, asteroids, tf, t0_guess;
     n_candidates = 20,
-    trans_scale=1,
-    # alg=Tsit5(),
-    nl_alg=NLSolveJL(
-        autoscale=false,
-        # autodiff=:forward,
-        method=:trust_region,
-        # ftol=1e-10,
-        # xtol=1e-8,
-    ),
-    # nl_alg=NewtonRaphson(
-    #     autodiff=false,
+    # trans_scale=1,
+    # # alg=Tsit5(),
+    # nl_alg=NLSolveJL(
+    #     autoscale=false,
+    #     # autodiff=:forward,
+    #     method=:trust_region,
+    #     # ftol=1e-10,
+    #     # xtol=1e-8,
     # ),
-    maxiters=100,
-    ftol=1e-10,
-    xtol=1e-10,
-    show_trace=true,
+    # # nl_alg=NewtonRaphson(
+    # #     autodiff=false,
+    # # ),
+    # maxiters=100,
+    # ftol=1e-10,
+    # xtol=1e-10,
+    # show_trace=true,
 );
 
 # final_stations = [collect(propagate(sol.t[end], station)) for sol in sols]
@@ -59,7 +59,7 @@ final_states = [sol[end].x for sol in sols]
 state_errors = final_states .- Ref(station_final_state)
 er = [(e.r)AU .|> km for e in state_errors]
 ev = [(e.ṙ)AU/yr .|> m/s for e in state_errors]
-count([all(abs.(x).<2m/s) for x in ev] .& [all(abs.(x).<1km) for x in er])
+count([all(abs.(x).<0.01m/s) for x in ev] .& [all(abs.(x).<10km) for x in er])
 
 
 
