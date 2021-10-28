@@ -78,8 +78,8 @@ function nl_fun(out::ComponentArray, u::ComponentArray, p)
 	@unpack station_state_final, asteroid_initial, min_t0, prob, α, alg = p
 
     tf = typeof(t)(prob.tspan[2])
-    # t0 = typeof(t)(clamp(t, min_t0, tf-ustrip(yr, 1d)))
-    t0 = typeof(t)(max(t, min_t0))
+    t0 = typeof(t)(clamp(t, min_t0, tf-ustrip(yr, 1d)))
+    # t0 = typeof(t)(max(t, min_t0))
 
 	# u0 = copy(prob.u0)
     # u0.x .= propagate(t, asteroid_initial)
