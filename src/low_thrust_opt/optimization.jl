@@ -55,37 +55,62 @@ function low_thrust_transfer(chaser, target;
 end
 
 
+
+
 ## Everything above this is garbage
-function nl_fun(u, p)
+
+const nl_var_ax = getaxes(ComponentArray(λ=state_vec(zeros(6)), t=0.0))
+
+function scale_to_requirements(x; r_req=1km, v_req=2m/s)
+    r, v = x[1:3], x[4:6]
+    r_scaled = unit(r_req).(r*DEFAULT_DISTANCE_UNIT)./r_req
+    v_scaled = unit(v_req).(v*DEFAULT_DISTANCE_UNIT/DEFAULT_TIME_UNIT)./v_req
+    return [r_scaled; v_scaled]
+end
+
+distance_metric(a, b) = sqrt(sum(abs2, scale_to_requirements(SVector{6}(a) - SVector{6}(b))))
+
+internal_norm(u, t) = norm(scale_to_requirements(SVector{12}(u)[1:6]))
+
+nl_fun(out, u, p) = nl_fun(ComponentArray(out, nl_var_ax), ComponentArray(u, nl_var_ax), p)
+function nl_fun(out::ComponentArray, u::ComponentArray, p)
 	@unpack λ, t = u
-	@unpack station_initial, prob, α, out, alg = p
+	@unpack station_state_final, asteroid_initial, min_t0, prob, α, alg = p
 
-    station_final = propagate(t, station_initial)
+    tf = typeof(t)(prob.tspan[2])
+    # t0 = typeof(t)(clamp(t, min_t0, tf-ustrip(yr, 1d)))
+    t0 = typeof(t)(max(t, min_t0))
 
-	u0 = copy(prob.u0)
-	u0.λ = λ
-	prob = remake(prob; u0, tspan=(prob.tspan[1], t))
-	sol = solve(prob, alg)
+	# u0 = copy(prob.u0)
+    # u0.x .= propagate(t, asteroid_initial)
+	# u0.λ .= λ
+    u0 = ComponentArray([propagate(t0, asteroid_initial); λ], getaxes(prob.u0))
+	prob = remake(prob; u0=u0, tspan=(t0, tf))
+	sol = solve(prob, alg; saveat=[tf], DEFAULT_SIM_ARGS...)
+	# sol = solve(prob, Tsit5(); saveat=[tf])
 	uf = sol[end]
 
-    @. out.λ.r = 1e-10(1e10station_final[1:3] - 1e10uf.x.r)*DEFAULT_DISTANCE_UNIT |> km |> ustrip
-    @. out.λ.ṙ = (station_final[4:6] - uf.x.ṙ)*(DEFAULT_DISTANCE_UNIT/DEFAULT_TIME_UNIT) |> km/s |> ustrip
+    out.λ .= scale_to_requirements(station_state_final - SVector{6}(uf.x))
+    # @. out.λ.r = 1e-10(1e10station_state_final[1:3] - 1e10uf.x.r)*DEFAULT_DISTANCE_UNIT |> km |> ustrip
+    # @. out.λ.ṙ = (station_state_final[4:6] - uf.x.ṙ)*(DEFAULT_DISTANCE_UNIT/DEFAULT_TIME_UNIT) |> m/s |> ustrip
     out.t = (1 + uf.λ'uf.x) * α
     return out
 end
 
-get_candidate_solutions(station, asteroids::AbstractMatrix, time_guess; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), time_guess; kwargs...)
-function get_candidate_solutions(station, asteroids, t0, time_guess;
+get_candidate_solutions(station, asteroids::AbstractMatrix, args...; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), args...; kwargs...)
+function get_candidate_solutions(station, asteroids, tf, t0_guess;
                                  n_candidates=1,
-                                 trans_scale=1e-8,
+                                 trans_scale=1,
                                  alg=DEFAULT_ALG,
-                                 autodiff=:forward,
+                                 nl_alg=NLSolveJL(autoscale=false),
+                                #  nl_alg=NewtonRaphson(),
                                  saveat=ustrip(DEFAULT_TIME_UNIT(1d)),
                                  kwargs...)
     ## Solve reverse problem
-    #t0 = 0.0 # station[1]    
-    #station_state_initial = station[2:end]
-    tf = t0+time_guess
+    Δt = tf - t0_guess
+    min_t0 = tf-1.5Δt
+
+    # Propagate the station to the final time
     station_state_final = propagate(tf, station)
 
     # Choose the first five final costates at random and calculate last from Hamiltonian
@@ -96,48 +121,62 @@ function get_candidate_solutions(station, asteroids, t0, time_guess;
 
     # Set up problem
     uf = ComponentArray(OneVehicleSimState(x=collect(station_state_final), λ=λf))
-    back_prob = remake(opt_prob; u0=uf, tspan=(tf, t0))
+    back_prob = remake(opt_prob; u0=uf, tspan=(tf, t0_guess))
 
-    # # Solve
-    back_sol = solve(back_prob, Tsit5())		
+    # Solve
+    back_sol = solve(back_prob, Tsit5())
 
     # Get initial state and costate
     u0 = back_sol[end]
     back_station = u0.x
     λ0 = u0.λ
 
+    forward_prob = remake(opt_prob; tspan=(t0_guess, tf))
+
 
     ## Get closest asteroids at that point
-    sorted = sort(asteroids; by=asteroid->sum(abs2, asteroid-back_station))
+    sorted = sort(asteroids; by=asteroid->sum(abs2, propagate(t0_guess, asteroid) - back_station))
+    # sorted = sort(asteroids; by=asteroid->distance_metric(propagate(t0_guess, asteroid),  back_station))
     besties = sorted[1:n_candidates]
 
 
     ## Loop over chosen asteroids
-    return map(besties) do bestie
-        u0.x = bestie
+    nl_sols = map(besties) do bestie
+        # u0.x = propagate(0, bestie)
 
-        ## Solve for the optimal trajectory
-        # Set up forward ODE problem
-        tspan = (t0, tf)
-        forward_prob = remake(back_prob; u0=u0, tspan=tspan)
+        # ## Solve for the optimal trajectory
+        # # Set up forward ODE problem
+        # tspan = (t0, tf)
+        # forward_prob = remake(back_prob; u0=u0, tspan=tspan)
 
         # Set up nonlinear problem
-        nl_u = ComponentArray(; λ=λ0, t=tf)
+        nl_u = [λ0; t0_guess]# ComponentArray(; λ=λ0, t=t0_guess)
         nl_p = (
-            station_initial = station,
+            station_state_final = station_state_final,
+            asteroid_initial = bestie,
+            min_t0 = min_t0,
             prob = forward_prob,
             α = trans_scale,
-            out = copy(nl_u),
             alg = alg,
         )
-        nl_prob = NonlinearProblem(nl_fun, nl_u, nl_p)
+        nl_prob = NonlinearProblem{true}(nl_fun, nl_u, nl_p)
 
         # Solve
-        nl_sol = solve(nl_prob; autodiff=autodiff, kwargs...)
-        u0.λ = nl_sol.u.λ
+        nl_sol = (; sol=solve(nl_prob, nl_alg; kwargs...), bestie=bestie)
+        # # u0.λ = nl_sol.u.λ
+        # u0.λ = nl_sol.u[1:6]
+        # u0.x = propagate(nl_sol.u[end], bestie)
+        # # u0
+        # println((nl_sol.u[end], tf))
+        # solve(remake(forward_prob; u0=u0, tspan=(nl_sol.u[end], tf)), alg; saveat=saveat)
+    end
 
-				tff = nl_sol.u.t
-				print("$t0,$tf\n")
-        solve(remake(forward_prob; u0=u0, tspan=(t0, nl_sol.u.t)), alg; saveat=saveat)
+    filter!(x->x.sol[end]<tf, nl_sols)
+
+    return map(nl_sols) do (sol, bestie)
+        u0.λ = sol.u[1:6]
+        u0.x = propagate(sol.u[end], bestie)
+        new_prob = remake(forward_prob; u0=u0, tspan=(max(sol.u[end], min_t0), tf))
+        solve(new_prob, DEFAULT_ALG; saveat=saveat, DEFAULT_SIM_ARGS...)
     end
 end

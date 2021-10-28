@@ -5,20 +5,24 @@ using ComponentArrays: ComponentArrays, ComponentArray, getdata, getaxes
 using ConcreteStructs: @concrete
 using DataFrames: DataFrame, DataFrameRow
 using DelimitedFiles: readdlm
+import DiffEqSensitivity
 using DifferentialEquations: ODEProblem, Tsit5, solve, remake
 using DifferentialEquations.SciMLBase: AbstractODESolution, AbstractOptimizationSolution
-using GalacticOptim: GalacticOptim, OptimizationFunction, OptimizationProblem, NonlinearProblem
+import ForwardDiff
+using GalacticOptim: GalacticOptim, OptimizationFunction, OptimizationProblem
 using InvertedIndices: Not
-using LinearAlgebra: norm, normalize, ×, ⋅
+using LinearAlgebra: norm, normalize, ×, ⋅, ldiv!, lu
+using NonlinearSolve: NonlinearProblem, NewtonRaphson, DEFAULT_LINSOLVE
 using Optim: Fminbox, NelderMead
 using Plots: plot, plot!, scatter!, quiver!
 using Rotations: RotZXZ, UnitQuaternion
+using SciMLNLSolve: NLSolveJL, CMINPACK
 using Setfield: @set!
 using SimulationLogs: @log, get_log, scope, scope!
 using StaticArrays: @SVector, @SMatrix, SVector
 using Sundials: ARKODE, Explicit, FEHLBERG_13_7_8
 using UnPack: @unpack
-using Unitful: @unit, Quantity, NoDims, FreeUnits, ustrip, m, km, s, d, °, kg, rad
+using Unitful: @unit, Quantity, NoDims, FreeUnits, ustrip, unit, m, km, s, d, °, kg, rad
 using UnitfulAstro: yr
 
 
