@@ -1,6 +1,13 @@
-function spacecraft!(D, vars, params, t; a=0)
+function spacecraft!(D, vars, params, t; θ=0.0, ϕ=0.0)
 	@unpack r, ṙ = vars
-	@unpack μ = params
+	@unpack Γ, μ = params
+
+	@log θ rad2deg(θ)
+	@log ϕ rad2deg(ϕ)
+
+	sθ, cθ = sincos(θ)
+	sϕ, cϕ = sincos(ϕ)
+	@log a = Γ*SVector(sϕ*cθ, sϕ*sθ, cϕ)
 
 	r = SVector{3}(r)
 	R = sqrt(sum(abs2, r))
@@ -13,18 +20,12 @@ end
 
 function opt_spacecraft!(D, vars, p, t)
 	@unpack x, λ = vars
-	@unpack Γ, μ = p
+	@unpack μ = p
 	
 	θ = atan(λ[5], λ[4])
 	ϕ = atan(sqrt(λ[5]^2 + λ[4]^2), λ[6])
-	@log θ rad2deg(θ)
-	@log ϕ rad2deg(ϕ)
 	
-	sθ, cθ = sincos(θ)
-	sϕ, cϕ = sincos(ϕ)
-	@log a = Γ*SVector(sϕ*cθ, sϕ*sθ, cϕ)
-	
-	spacecraft!(D.x, x, p, t; a)
+	spacecraft!(D.x, x, p, t; θ, ϕ)
 	
 	r = x.r
 	R = sqrt(sum(abs2, r))
@@ -41,18 +42,12 @@ end
 
 function opt_rel_spacecraft!(D, vars, p, t)
 	@unpack x, λ = vars
-	@unpack Γ, μ = p
+	@unpack μ = p
 	
 	θ = atan(λ[5], λ[4])
 	ϕ = atan(sqrt(λ[5]^2 + λ[4]^2), λ[6])
-	@log θ rad2deg(θ)
-	@log ϕ rad2deg(ϕ)
 	
-	sθ, cθ = sincos(θ)
-	sϕ, cϕ = sincos(ϕ)
-	@log a = Γ*SVector(sϕ*cθ, sϕ*sθ, cϕ)
-	
-	spacecraft!(D.x.chaser, x.chaser, p, t; a)
+	spacecraft!(D.x.chaser, x.chaser, p, t; θ, ϕ)
 	spacecraft!(D.x.target, x.target, p, t)
 	
 	r = x.chaser.r

@@ -4,14 +4,16 @@ using Base: @kwdef
 using ComponentArrays: ComponentArrays, ComponentArray, getdata, getaxes
 using ConcreteStructs: @concrete
 using DataFrames: DataFrame, DataFrameRow
+using DataInterpolations: LagrangeInterpolation
 using DelimitedFiles: readdlm
-import DiffEqSensitivity
+using DiffEqSensitivity: InterpolatingAdjoint
 using DifferentialEquations: ODEProblem, Tsit5, solve, remake
 using DifferentialEquations.SciMLBase: AbstractODESolution, AbstractOptimizationSolution
 import ForwardDiff
 using GalacticOptim: GalacticOptim, OptimizationFunction, OptimizationProblem
 using InvertedIndices: Not
 using LinearAlgebra: norm, normalize, ×, ⋅, ldiv!, lu
+using NLopt: Opt, equality_constraint!, optimize
 using NonlinearSolve: NonlinearProblem, NewtonRaphson, DEFAULT_LINSOLVE
 using Optim: Fminbox, NelderMead
 using Plots: plot, plot!, scatter!, quiver!

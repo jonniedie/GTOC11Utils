@@ -58,6 +58,49 @@ end
 
 
 ## Everything above this is garbage
+interp_control_spacecraft!(D, x, p, t) = spacecraft!(D, x, p, t; θ=p.θ(t), ϕ=p.ϕ(t))
+
+function interp_control_run(vars, params)
+    @unpack t0, θ, ϕ = vars
+    @unpack tf, prob, alg, kwargs = params
+
+    t = range(t0, tf; length=length(θ))
+    θ_interp = LagrangeInterpolation(θ, t)
+    ϕ_interp = LagrangeInterpolation(θ, t)
+
+    p = (; μ=prob.p.μ, Γ=prob.p.Γ, θ=θ_interp, ϕ=ϕ_interp)
+
+    return solve(remake(prob; p=p), alg; kwargs...)
+end
+
+function interp_control_cost(vars, params)
+    xf = SVector{6}(interp_control_run(vars, params)[end])
+    return sum(abs2, scale_to_requirements(xf))
+end
+
+function interp_control_cost_fast(vars, params)
+    params = (; params..., alg=Tsit5(), kwargs=(; params.kwargs..., adaptive=true))
+    return interp_control_cost(vars, params)
+end
+
+interp_control_gradient!(out, vars, params) = ForwardDiff.gradient!(out, x->interp_control_cost_fast(x, params), vars)
+
+function interp_control_cost_and_gradient!(vars, grad, params)
+    interp_control_gradient!(grad, vars, params)
+    return interp_control_cost(vars, params)
+end
+
+function interp_control_transfer(station, asteroid, tf, t0_guess; time_divisions=100)
+    initial_station_state = propagate(t0_guess, station)
+    final_station_state = propagate(tf, station)
+    initial_asteroid_state = propagate(t0_guess, asteroid)
+    final_asteroid_state = propagate(tf, asteroid)
+
+    initial_guess = ComponentArray(t0=t0_guess, θ=zeros(time_divisions), ϕ=zeros(time_divisions))
+
+end
+
+
 
 const nl_var_ax = getaxes(ComponentArray(λ=state_vec(zeros(6)), t=0.0))
 
@@ -100,11 +143,12 @@ end
 get_candidate_solutions(station, asteroids::AbstractMatrix, args...; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), args...; kwargs...)
 function get_candidate_solutions(station, asteroids, tf, t0_guess;
                                  n_candidates=1,
+                                 costate_guess=rand(6).-0.5,
                                  trans_scale=1,
                                  alg=DEFAULT_ALG,
                                  nl_alg=NLSolveJL(autoscale=false),
                                 #  nl_alg=NewtonRaphson(),
-                                 saveat=ustrip(DEFAULT_TIME_UNIT(1d)),
+                                #  saveat=ustrip(DEFAULT_TIME_UNIT(1d)),
                                  kwargs...)
     ## Solve reverse problem
     Δt = tf - t0_guess
@@ -114,7 +158,7 @@ function get_candidate_solutions(station, asteroids, tf, t0_guess;
     station_state_final = propagate(tf, station)
 
     # Choose the first five final costates at random and calculate last from Hamiltonian
-    λf = @SVector(rand(6)) .- 0.5
+    λf = costate_guess #[SVector{5}(costate_guess); 1e10]
     max_i = argmax(station_state_final)
     # max_i = 6
     @set! λf[max_i] = -(1 + station_state_final[Not(max_i)]'*λf[Not(max_i)]) / station_state_final[max_i]
@@ -135,8 +179,8 @@ function get_candidate_solutions(station, asteroids, tf, t0_guess;
 
 
     ## Get closest asteroids at that point
-    # sorted = sort(asteroids; by=asteroid->sum(abs2, propagate(t0_guess, asteroid) - back_station))
-    sorted = sort(asteroids; by=asteroid->distance_metric(propagate(t0_guess, asteroid),  back_station))
+    sorted = sort(asteroids; by=asteroid->sum(abs2, propagate(t0_guess, asteroid) - back_station))
+    # sorted = sort(asteroids; by=asteroid->distance_metric(propagate(t0_guess, asteroid),  back_station))
     besties = sorted[1:n_candidates]
 
 
@@ -171,12 +215,15 @@ function get_candidate_solutions(station, asteroids, tf, t0_guess;
         # solve(remake(forward_prob; u0=u0, tspan=(nl_sol.u[end], tf)), alg; saveat=saveat)
     end
 
-    filter!(x->x.sol[end]<tf, nl_sols)
+    # filter!(x->x.sol[end]<tf, nl_sols)
 
     return map(nl_sols) do (sol, bestie)
         u0.λ = sol.u[1:6]
         u0.x = propagate(sol.u[end], bestie)
-        new_prob = remake(forward_prob; u0=u0, tspan=(max(sol.u[end], min_t0), tf))
-        solve(new_prob, DEFAULT_ALG; saveat=saveat, DEFAULT_SIM_ARGS...)
+        tspan = (max(sol.u[end], min_t0), tf)
+        println(tspan)
+        new_prob = remake(forward_prob; u0=u0, tspan=tspan)
+        solve(new_prob, DEFAULT_ALG; DEFAULT_SIM_ARGS...)
     end
 end
+
