@@ -32,14 +32,15 @@ tf = t0_guess + 1.75
 @time sols = get_candidate_solutions(station, asteroids, tf, t0_guess;
     n_candidates = 20,
     # trans_scale=1,
-    # # alg=Tsit5(),
-    # nl_alg=NLSolveJL(
-    #     autoscale=false,
-    #     # autodiff=:forward,
-    #     method=:trust_region,
-    #     # ftol=1e-10,
-    #     # xtol=1e-8,
-    # ),
+    # alg=Tsit5(),
+    nl_alg=NLSolveJL(
+        autoscale=false,
+        # autodiff=:forward,
+        method=:trust_region,
+        # ftol=1e-10,
+        # xtol=1e-8,
+    ),
+    costate_guess = (rand(6) .- 0.5),
     # # nl_alg=NewtonRaphson(
     # #     autodiff=false,
     # # ),
@@ -65,7 +66,7 @@ count([all(abs.(x).<0.01m/s) for x in ev] .& [all(abs.(x).<10km) for x in er])
 
 
 ## Solve the forward problem for the tf
-prob = remake(GTOC11Utils.spacecraft_prob, u0=station_initial_state, tspan=(t0_guess, tf))
+prob = remake(GTOC11Utils.spacecraft_prob, u0=station_final_state, tspan=(tf, t0_guess))
 tols = ComponentArray(r=fill(ustrip(AU(10km)), 3), ṙ=fill(ustrip((AU/yr)(0.01m/s)), 3)) * 1e-5
 @time station_sol = solve(prob; abstol=tols);
 
