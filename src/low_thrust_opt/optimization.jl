@@ -58,8 +58,20 @@ end
 
 
 ## Everything above this is garbage
-
 const nl_var_ax = getaxes(ComponentArray(λ=state_vec(zeros(6)), t=0.0))
+
+opt_run(u, p) = opt_run(ComponentArray(u, nl_var_ax), p)
+function opt_run(u::ComponentArray, p)
+	@unpack λ, t = u
+	@unpack asteroid, min_t0, prob, alg, sim_kwargs = p
+
+    tf = typeof(t)(prob.tspan[2])
+    t0 = typeof(t)(clamp(t, min_t0, tf-ustrip(yr, 1d)))
+    u0 = ComponentArray([propagate(t0, asteroid); λ], getaxes(prob.u0))
+	prob = remake(prob; u0=u0, tspan=(t0, tf))
+
+	return solve(prob, alg; saveat=[tf], DEFAULT_SIM_ARGS..., sim_kwargs...)
+end
 
 function scale_to_requirements(x; r_req=10km, v_req=0.01m/s)
     r, v = x[1:3], x[4:6]
@@ -97,6 +109,52 @@ function nl_fun(out::ComponentArray, u::ComponentArray, p)
     return out
 end
 
+
+function opt_constraint!(u, p)
+	xf = SVector{6}(opt_run(u, p)[end].x)
+    return scale_to_requirements(p.station_state_final - xf)
+end
+
+opt_objective(u, p) = p.prob.tspan[2] - u.t
+
+
+function low_thrust_transfer2(station, asteroid, tf, t0_guess;
+                                min_t0=tf-1.5(tf-t0_guess),
+                                sim_alg=Tsit5(),
+                                sim_kwargs=(;),
+                                autodiff=GalacticOptim.AutoForwardDiff(),
+                                opt_alg=Ipopt.Optimizer(),
+                                opt_kwargs=(;))
+
+    # Set up problem
+    params = (;
+        asteroid,
+        station_state_final = propagate(tf, station),
+        min_t0,
+        prob = remake(opt_sim_prob; tspan=(t0_guess, tf)),
+        alg = sim_alg,
+        sim_kwargs,
+    )
+
+    initial_guess = ComponentArray(λ=rand(6) .- 0.5, t=t0_guess)
+
+    lb = ComponentArray(λ=-1e5ones(6), t=min_t0)
+    ub = ComponentArray(λ= 1e5ones(6), t=tf-0.01)
+
+    lcons = -state_vec(ones(6))
+    ucons =  state_vec(ones(6))
+
+    f = OptimizationFunction(opt_objective, autodiff; cons=opt_constraint!)
+    
+    opt_prob = OptimizationProblem(f, initial_guess, params; lb, ub, lcons, ucons)
+
+    opt_sol = solve(opt_prob, opt_alg; opt_kwargs...)
+    sim_sol = opt_run(opt_sol.u, p)
+
+    return (opt=opt_sol, sim=sim_sol)
+end
+
+
 get_candidate_solutions(station, asteroids::AbstractMatrix, args...; kwargs...) = get_candidate_solutions(station, collect(eachrow(asteroids)), args...; kwargs...)
 function get_candidate_solutions(station, asteroids, tf, t0_guess;
                                  n_candidates=1,
@@ -121,7 +179,7 @@ function get_candidate_solutions(station, asteroids, tf, t0_guess;
 
     # Set up problem
     uf = ComponentArray(OneVehicleSimState(x=collect(station_state_final), λ=λf))
-    back_prob = remake(opt_prob; u0=uf, tspan=(tf, t0_guess))
+    back_prob = remake(opt_sim_prob; u0=uf, tspan=(tf, t0_guess))
 
     # Solve
     back_sol = solve(back_prob, Tsit5())
@@ -131,7 +189,7 @@ function get_candidate_solutions(station, asteroids, tf, t0_guess;
     back_station = u0.x
     λ0 = u0.λ
 
-    forward_prob = remake(opt_prob; tspan=(t0_guess, tf))
+    forward_prob = remake(opt_sim_prob; tspan=(t0_guess, tf))
 
 
     ## Get closest asteroids at that point

@@ -76,7 +76,7 @@ const opt_rel_prob = let
     ODEProblem(opt_rel_spacecraft!, ic, (0.0, 10.0), p)
 end
 
-const opt_prob = let
+const opt_sim_prob = let
 	ic = sim_proto_one_vehicle
 	p = (; Γ=ustrip(Γ), μ=ustrip(μ))
 	ODEProblem(opt_spacecraft!, ic, (0.0, 10.0), p)

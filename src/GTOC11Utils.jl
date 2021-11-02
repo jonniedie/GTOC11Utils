@@ -11,6 +11,7 @@ using DifferentialEquations.SciMLBase: AbstractODESolution, AbstractOptimization
 import ForwardDiff
 using GalacticOptim: GalacticOptim, OptimizationFunction, OptimizationProblem
 using InvertedIndices: Not
+import Ipopt
 using LinearAlgebra: norm, normalize, ×, ⋅, ldiv!, lu
 using NonlinearSolve: NonlinearProblem, NewtonRaphson, DEFAULT_LINSOLVE
 using Optim: Fminbox, NelderMead
