@@ -58,46 +58,72 @@ end
 
 
 ## Everything above this is garbage
+
 interp_control_spacecraft!(D, x, p, t) = spacecraft!(D, x, p, t; θ=p.θ(t), ϕ=p.ϕ(t))
 
 function interp_control_run(vars, params)
     @unpack t0, θ, ϕ = vars
-    @unpack tf, prob, alg, kwargs = params
+    @unpack tf, asteroid, prob, alg, kwargs = params
 
-    t = range(t0, tf; length=length(θ))
+    # println(t0)
+    # println(θ)
+
+    t = range(float(t0), tf; length=length(θ))
     θ_interp = LagrangeInterpolation(θ, t)
-    ϕ_interp = LagrangeInterpolation(θ, t)
+    ϕ_interp = LagrangeInterpolation(ϕ, t)
 
+    u0 = ComponentArray(collect(propagate(t0, asteroid)), getaxes(prob.u0))
     p = (; μ=prob.p.μ, Γ=prob.p.Γ, θ=θ_interp, ϕ=ϕ_interp)
+    tspan = (t0, typeof(t0)(tf))
 
-    return solve(remake(prob; p=p), alg; kwargs...)
+    return solve(remake(prob; u0=u0, p=p, tspan=tspan), alg; kwargs...)
 end
 
-function interp_control_cost(vars, params)
-    xf = SVector{6}(interp_control_run(vars, params)[end])
-    return sum(abs2, scale_to_requirements(xf))
+# interp_control_cost(vars, params) = params.tf - vars.t0
+interp_control_cost(vars, params) = norm(interp_control_constraint(vars, params)[1:6])
+
+function interp_control_constraint(vars, params)
+    target = SVector{6}(params.final_station_state)
+    xf = SVector{6}(interp_control_run(vars, params)[end]) - target
+    return scale_to_requirements(xf)
+    # return [scale_to_requirements(xf); abs(interp_control_cost(vars, params))]
 end
 
-function interp_control_cost_fast(vars, params)
-    params = (; params..., alg=Tsit5(), kwargs=(; params.kwargs..., adaptive=true))
-    return interp_control_cost(vars, params)
-end
+function interp_control_transfer(station, asteroid, tf, t0_guess; alg=Tsit5(), time_divisions=10, sim_kwargs=DEFAULT_SIM_ARGS, opt_kwargs=(;))
+    ode_prob = ODEProblem(interp_control_spacecraft!, state_vec(zeros(6)), (t0_guess, tf), (Γ=ustrip(Γ), μ=ustrip(μ)))
+    
+    params = (;
+        tf = tf,
+        asteroid = asteroid, 
+        prob = ode_prob,
+        alg = alg,
+        kwargs = sim_kwargs,
+        final_station_state = propagate(tf, station)
+    )
 
-interp_control_gradient!(out, vars, params) = ForwardDiff.gradient!(out, x->interp_control_cost_fast(x, params), vars)
+    initial_guess = ComponentArray(t0=t0_guess, θ=rand(time_divisions), ϕ=rand(time_divisions))
+    ax = getaxes(initial_guess)
 
-function interp_control_cost_and_gradient!(vars, grad, params)
-    interp_control_gradient!(grad, vars, params)
-    return interp_control_cost(vars, params)
-end
+    # TODO: Fix the time bounds
+    angle_lb = @SVector fill(0.0, 2*time_divisions)
+    angle_ub = @SVector fill( 2π, 2*time_divisions)
+    lb = ComponentArray([tf-5.0; angle_lb], ax)
+    ub = ComponentArray([tf-0.01; angle_ub], ax)
 
-function interp_control_transfer(station, asteroid, tf, t0_guess; time_divisions=100)
-    initial_station_state = propagate(t0_guess, station)
-    final_station_state = propagate(tf, station)
-    initial_asteroid_state = propagate(t0_guess, asteroid)
-    final_asteroid_state = propagate(tf, asteroid)
+    state_cons = @SVector ones(6)
+    # lcons = [-state_cons; 0.0]
+    # ucons = [ state_cons; 5.0]
+    lcons = -state_cons
+    ucons =  state_cons
 
-    initial_guess = ComponentArray(t0=t0_guess, θ=zeros(time_divisions), ϕ=zeros(time_divisions))
+    fun = OptimizationFunction(interp_control_cost, GalacticOptim.AutoForwardDiff(); cons=interp_control_constraint)
+    prob = OptimizationProblem(fun, initial_guess, params; lb, ub, lcons, ucons)
 
+    # return interp_control_constraint(initial_guess, params)
+    opt_sol =  solve(prob, Ipopt.Optimizer(); opt_kwargs...)
+    sim_sol = interp_control_run(opt_sol.u, params)
+    
+    return (; opt=opt_sol, sim=sim_sol)
 end
 
 

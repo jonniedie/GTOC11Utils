@@ -17,7 +17,7 @@ asteroids = GTOC11Utils.strip_ephemeris.(eachrow(data))
 # Chose a random asteroid's state as the station
 station = @SVector [
     ustrip(yr, data[1,:epoch]),
-    2.5,
+    2.0,
     0.0,
     0.0,
     0.0,

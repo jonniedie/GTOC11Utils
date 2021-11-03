@@ -6,16 +6,17 @@ using ConcreteStructs: @concrete
 using DataFrames: DataFrame, DataFrameRow
 using DataInterpolations: LagrangeInterpolation
 using DelimitedFiles: readdlm
-using DiffEqSensitivity: InterpolatingAdjoint
+# using DiffEqSensitivity: InterpolatingAdjoint
 using DifferentialEquations: ODEProblem, Tsit5, solve, remake
 using DifferentialEquations.SciMLBase: AbstractODESolution, AbstractOptimizationSolution
 import ForwardDiff
 using GalacticOptim: GalacticOptim, OptimizationFunction, OptimizationProblem
 using InvertedIndices: Not
+import Ipopt
 using LinearAlgebra: norm, normalize, ×, ⋅, ldiv!, lu
 using NLopt: Opt, equality_constraint!, optimize
 using NonlinearSolve: NonlinearProblem, NewtonRaphson, DEFAULT_LINSOLVE
-using Optim: Fminbox, NelderMead
+using Optim: Fminbox, NelderMead, IPNewton
 using Plots: plot, plot!, scatter!, quiver!
 using Rotations: RotZXZ, UnitQuaternion
 using SciMLNLSolve: NLSolveJL, CMINPACK
@@ -44,7 +45,7 @@ export OneVehicleSimState, TwoVehicleSimState, OptInput
 include("low_thrust_opt/equations_of_motion.jl")
 
 include("low_thrust_opt/optimization.jl")
-export low_thrust_transfer, get_candidate_solutions
+export low_thrust_transfer, get_candidate_solutions, interp_control_transfer
 
 include("low_thrust_opt/postprocessing.jl")
 export run_solution, get_accelerations
